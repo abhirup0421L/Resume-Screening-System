@@ -1,0 +1,125 @@
+{
+  "Data Scientist": [
+    "python",
+    "sql",
+    "machine learning",
+    "pandas",
+    "numpy",
+    "tensorflow"
+  ],
+
+  "Web Developer": [
+    "html",
+    "css",
+    "javascript",
+    "react",
+    "nodejs",
+    "mongodb"
+  ],
+
+  "Python Developer": [
+    "python",
+    "django",
+    "flask",
+    "sql",
+    "mysql"
+  ],
+
+  "AI Engineer": [
+    "python",
+    "machine learning",
+    "tensorflow",
+    "numpy",
+    "pandas"
+  ],
+
+  "Java Developer": [
+    "java",
+    "spring",
+    "hibernate",
+    "mysql",
+    "sql"
+  ],
+
+  "Frontend Developer": [
+    "html",
+    "css",
+    "javascript",
+    "react",
+    "bootstrap"
+  ],
+
+  "Backend Developer": [
+    "python",
+    "java",
+    "nodejs",
+    "sql",
+    "mongodb"
+  ],
+
+  "Full Stack Developer": [
+    "html",
+    "css",
+    "javascript",
+    "react",
+    "nodejs",
+    "mongodb",
+    "sql"
+  ],
+
+  "Android Developer": [
+    "java",
+    "kotlin",
+    "android",
+    "firebase",
+    "sql"
+  ],
+
+  "DevOps Engineer": [
+    "linux",
+    "docker",
+    "kubernetes",
+    "aws",
+    "python"
+  ],
+
+  "Cloud Engineer": [
+    "aws",
+    "azure",
+    "google cloud",
+    "linux",
+    "python"
+  ],
+
+  "Cyber Security Analyst": [
+    "networking",
+    "linux",
+    "python",
+    "ethical hacking",
+    "security"
+  ],
+
+  "Software Tester": [
+    "manual testing",
+    "selenium",
+    "java",
+    "bug tracking",
+    "automation"
+  ],
+
+  "UI UX Designer": [
+    "figma",
+    "adobe xd",
+    "photoshop",
+    "wireframing",
+    "prototyping"
+  ],
+
+  "Database Administrator": [
+    "sql",
+    "mysql",
+    "oracle",
+    "database",
+    "backup"
+  ]
+}
