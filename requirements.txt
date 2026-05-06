@@ -1,9 +1,0 @@
-streamlit
-pandas
-numpy
-PyPDF2
-python-docx
-plotly
-python-dotenv
-rapidfuzz
-google-genai
