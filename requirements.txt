@@ -1,0 +1,10 @@
+streamlit
+pandas
+numpy
+PyPDF2
+fpdf
+python-docx
+plotly
+python-dotenv
+rapidfuzz
+google-genai
