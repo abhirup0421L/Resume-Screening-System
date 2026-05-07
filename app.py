@@ -5,6 +5,7 @@ import json
 import time
 import plotly.graph_objects as go
 from fpdf import FPDF
+from streamlit_autorefresh import st_autorefresh
 
 from backend.parser import extract_text
 from backend.skills import extract_skills
@@ -12,10 +13,14 @@ from backend.matcher import match_skills
 from backend.ai_validator import validate_resume
 from backend.resume_generator import generate_resume
 
+from backend.auth import (
+    send_login_otp,
+    verify_otp,
+    update_name,
+    get_user
+)
 
-# --------------------------
-# Page Setup
-# --------------------------
+
 st.set_page_config(
     page_title="AI Resume Screening",
     page_icon="📄",
@@ -23,8 +28,30 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+
+# --------------------------
+# Session State
+# --------------------------
 if "page" not in st.session_state:
     st.session_state.page = "Resume Analyzer"
+
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if "user_email" not in st.session_state:
+    st.session_state.user_email = ""
+
+if "temp_email" not in st.session_state:
+    st.session_state.temp_email = ""
+
+if "auth_mode" not in st.session_state:
+    st.session_state.auth_mode = "login"
+
+if "otp_sent" not in st.session_state:
+    st.session_state.otp_sent = False
+
+if "otp_start_time" not in st.session_state:
+    st.session_state.otp_start_time = None
 
 
 # --------------------------
@@ -34,37 +61,27 @@ st.markdown("""
 <style>
 
 .stApp {
-    background: linear-gradient(135deg, #020617, #0F172A);
+    background: #000000;
 }
 
-/* Sidebar Design */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #020617, #111827, #0F172A);
-    border-right: 1px solid rgba(255,255,255,0.08);
+    background: #0A0A0A;
+    border-right: 1px solid rgba(0,255,76,0.25);
 }
 
 .sidebar-title {
     font-size: 30px;
     font-weight: 900;
-    color: #FFFFFF;
+    color: #00ff4c;
     margin-bottom: 5px;
 }
 
 .sidebar-subtitle {
-    color: #94A3B8;
+    color: #BFBFBF;
     font-size: 14px;
     margin-bottom: 25px;
 }
 
-.sidebar-card {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.08);
-    padding: 15px;
-    border-radius: 18px;
-    margin-bottom: 18px;
-}
-
-/* Main Header */
 .main-title {
     font-size: 45px;
     font-weight: 900;
@@ -73,55 +90,142 @@ section[data-testid="stSidebar"] {
 
 .main-subtitle {
     font-size: 17px;
-    color: #94A3B8;
+    color: #BFBFBF;
     margin-bottom: 25px;
+}
+
+.user-badge {
+    position: fixed;
+    top: 82px;
+    left: 18px;
+    z-index: 999;
+    color: #00ff4c;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.top-nav-box {
+    margin-top: 20px;
+    margin-bottom: 25px;
+}
+
+/* Login Card */
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    border: 1px solid rgba(0,255,76,0.65) !important;
+    border-radius: 10px !important;
+    padding: 35px !important;
+    background: rgba(17,17,17,0.95) !important;
+    box-shadow: 0 25px 70px rgba(0,255,76,0.12) !important;
+}
+
+.auth-small-title {
+    text-align: center;
+    color: white;
+    font-size: 20px;
+    font-weight: 800;
+    margin-bottom: 18px;
+}
+
+.auth-big-title {
+    text-align: center;
+    color: #00ff4c;
+    font-size: 42px;
+    font-weight: 900;
+    letter-spacing: 12px;
+    margin-bottom: 35px;
+}
+
+.auth-label {
+    color: white;
+    font-size: 15px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    margin-top: 12px;
+}
+
+.auth-or {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: #CCCCCC;
+    margin: 28px 0;
+    font-weight: 700;
+}
+
+.auth-or::before,
+.auth-or::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(0,255,76,0.35);
+}
+
+.auth-bottom {
+    color: white;
+    font-weight: 700;
+    margin-bottom: 10px;
+    margin-top: 10px;
+}
+
+div[data-testid="stTextInput"] {
+    margin-top: 0px !important;
+    margin-bottom: 18px !important;
+}
+
+div[data-testid="stTextInput"] input {
+    height: 48px !important;
+    border-radius: 12px !important;
+    padding-top: 10px !important;
+    background-color: #111111 !important;
+    color: white !important;
+    border: 1px solid rgba(0,255,76,0.35) !important;
 }
 
 /* Buttons */
 .stButton > button {
-    background: linear-gradient(90deg, #06B6D4, #3B82F6);
-    color: white;
+    background: linear-gradient(90deg, #00ff4c, #00cc3a);
+    color: black;
     border: none;
     border-radius: 14px;
-    height: 48px;
-    font-weight: 800;
+    height: 52px;
+    font-weight: 900;
     transition: 0.3s ease;
 }
 
 .stButton > button:hover {
     transform: translateY(-2px);
-    box-shadow: 0px 6px 20px rgba(59,130,246,0.35);
+    box-shadow: 0px 6px 20px rgba(0,255,76,0.35);
+    color: black;
 }
 
-/* Sidebar buttons */
 section[data-testid="stSidebar"] .stButton > button {
-    background: #1E293B;
-    border: 1px solid rgba(255,255,255,0.08);
+    background: #111111;
+    border: 1px solid rgba(0,255,76,0.35);
     color: white;
     height: 52px;
     border-radius: 16px;
 }
 
 section[data-testid="stSidebar"] .stButton > button:hover {
-    background: linear-gradient(90deg, #06B6D4, #3B82F6);
+    background: linear-gradient(90deg, #00ff4c, #00cc3a);
+    color: black;
 }
 
 /* Download Buttons */
 .stDownloadButton > button {
-    background: linear-gradient(90deg, #0EA5E9, #2563EB);
-    color: white;
+    background: linear-gradient(90deg, #00ff4c, #00cc3a);
+    color: black;
     border: none;
     border-radius: 14px;
     height: 48px;
-    font-weight: 800;
+    font-weight: 900;
 }
 
-/* Metrics */
 div[data-testid="stMetric"] {
-    background-color: rgba(255,255,255,0.04);
+    background-color: #111111;
     padding: 20px;
     border-radius: 18px;
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid rgba(0,255,76,0.25);
 }
 
 textarea, input {
@@ -132,9 +236,191 @@ textarea, input {
 """, unsafe_allow_html=True)
 
 
-# --------------------------
-# Sidebar Navigation
-# --------------------------
+# =====================================================
+# LOGIN / SIGN IN SYSTEM
+# =====================================================
+if not st.session_state.logged_in:
+
+    left, center, right = st.columns([1.4, 1, 1.4])
+
+    with center:
+
+        with st.container(border=True):
+
+            if st.session_state.auth_mode == "login":
+
+                st.markdown(
+                    '<div class="auth-small-title">Resume Screening System</div>',
+                    unsafe_allow_html=True
+                )
+
+                st.markdown(
+                    '<div class="auth-big-title">LOGIN</div>',
+                    unsafe_allow_html=True
+                )
+
+                st.markdown(
+                    '<div class="auth-label">Enter mail</div>',
+                    unsafe_allow_html=True
+                )
+
+                login_email = st.text_input(
+                    "",
+                    placeholder="Enter your email",
+                    key="login_email",
+                    label_visibility="collapsed"
+                )
+
+                if st.button("Verify", use_container_width=True):
+
+                    if not login_email:
+                        st.error("Please enter email.")
+
+                    else:
+                        user = get_user(login_email)
+
+                        if user and user.get("verified") is True:
+                            st.session_state.logged_in = True
+                            st.session_state.user_email = login_email
+
+                            st.success("Login successful.")
+                            time.sleep(1)
+                            st.rerun()
+
+                        else:
+                            st.error("No account found. Please sign in first.")
+
+                st.markdown(
+                    '<div class="auth-or">OR</div>',
+                    unsafe_allow_html=True
+                )
+
+                st.markdown(
+                    '<div class="auth-bottom">Don’t have an account?</div>',
+                    unsafe_allow_html=True
+                )
+
+                if st.button("Sign In", use_container_width=True):
+                    st.session_state.auth_mode = "signin"
+                    st.session_state.otp_sent = False
+                    st.session_state.otp_start_time = None
+                    st.rerun()
+
+            elif st.session_state.auth_mode == "signin":
+
+                st.markdown(
+                    '<div class="auth-small-title">Resume Screening System</div>',
+                    unsafe_allow_html=True
+                )
+
+                st.markdown(
+                    '<div class="auth-big-title">SIGN IN</div>',
+                    unsafe_allow_html=True
+                )
+
+                st.markdown(
+                    '<div class="auth-label">Enter mail</div>',
+                    unsafe_allow_html=True
+                )
+
+                signin_email = st.text_input(
+                    "",
+                    placeholder="Enter your email",
+                    key="signin_email",
+                    label_visibility="collapsed"
+                )
+
+                if st.button("Send OTP", use_container_width=True):
+
+                    if signin_email:
+
+                        with st.spinner("Sending OTP..."):
+                            sent = send_login_otp(signin_email)
+                            st.session_state.temp_email = signin_email
+
+                        if sent:
+                            st.session_state.otp_sent = True
+                            st.session_state.otp_start_time = time.time()
+                            st.success("OTP sent successfully.")
+
+                        else:
+                            st.error("Failed to send OTP.")
+
+                    else:
+                        st.error("Please enter email.")
+
+                if st.session_state.otp_sent:
+
+                    st_autorefresh(interval=1000, key="otp_timer_refresh")
+
+                    st.markdown(
+                        '<div class="auth-label">Enter OTP</div>',
+                        unsafe_allow_html=True
+                    )
+
+                    otp = st.text_input(
+                        "",
+                        placeholder="Enter OTP",
+                        key="signin_otp",
+                        label_visibility="collapsed"
+                    )
+
+                    elapsed = int(time.time() - st.session_state.otp_start_time)
+                    remaining = max(0, 300 - elapsed)
+
+                    mins = remaining // 60
+                    secs = remaining % 60
+
+                    st.info(f"OTP expires in: {mins:02d}:{secs:02d}")
+
+                    if remaining == 0:
+                        st.session_state.otp_sent = False
+                        st.session_state.otp_start_time = None
+                        st.error("OTP expired. Please send OTP again.")
+                        st.rerun()
+
+                    if st.button("Verify OTP", use_container_width=True):
+
+                        success, message = verify_otp(
+                            st.session_state.temp_email,
+                            otp
+                        )
+
+                        if success:
+                            st.session_state.logged_in = True
+                            st.session_state.user_email = st.session_state.temp_email
+                            st.session_state.otp_sent = False
+                            st.session_state.otp_start_time = None
+
+                            st.success("Account created successfully.")
+                            time.sleep(1)
+                            st.rerun()
+
+                        else:
+                            st.error(message)
+
+                st.markdown(
+                    '<div class="auth-or">OR</div>',
+                    unsafe_allow_html=True
+                )
+
+                st.markdown(
+                    '<div class="auth-bottom">Already have an account?</div>',
+                    unsafe_allow_html=True
+                )
+
+                if st.button("Back to Login", use_container_width=True):
+                    st.session_state.auth_mode = "login"
+                    st.session_state.otp_sent = False
+                    st.session_state.otp_start_time = None
+                    st.rerun()
+
+    st.stop()
+
+
+# =====================================================
+# SIDEBAR PROFILE ONLY
+# =====================================================
 with st.sidebar:
 
     st.markdown('<div class="sidebar-title">⚡ Resume AI</div>', unsafe_allow_html=True)
@@ -145,29 +431,46 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
-    st.write("📌 **Navigation**")
+    user = get_user(st.session_state.user_email)
 
-    if st.button("🔍 Resume Analyzer", use_container_width=True):
-        st.session_state.page = "Resume Analyzer"
+    st.subheader("👤 Profile")
+
+    current_name = ""
+    if user:
+        current_name = user.get("name", "")
+
+    profile_name = st.text_input("Name", value=current_name)
+
+    if st.button("💾 Save Name", use_container_width=True):
+        update_name(st.session_state.user_email, profile_name)
+        st.success("Name updated.")
+
+    st.write("📧", st.session_state.user_email)
+
+    if st.button("🚪 Logout", use_container_width=True):
+        st.session_state.logged_in = False
+        st.session_state.user_email = ""
+        st.session_state.temp_email = ""
+        st.session_state.auth_mode = "login"
+        st.session_state.otp_sent = False
+        st.session_state.otp_start_time = None
         st.rerun()
 
-    if st.button("✨ AI CV Maker", use_container_width=True):
-        st.session_state.page = "AI CV Maker"
-        st.rerun()
 
-    st.markdown("</div>", unsafe_allow_html=True)
+# =====================================================
+# HEADER
+# =====================================================
+user = get_user(st.session_state.user_email)
 
-    st.success(f"Active: {st.session_state.page}")
+display_name = "User"
+if user and user.get("name"):
+    display_name = user.get("name")
 
-    st.markdown("---")
+st.markdown(
+    f'<div class="user-badge">👤 {display_name}</div>',
+    unsafe_allow_html=True
+)
 
-    st.info("Click the arrow on top-left sidebar to open/close navigation.")
-
-
-# --------------------------
-# Header
-# --------------------------
 st.markdown(
     '<div class="main-title">📄 AI Resume Screening System</div>',
     unsafe_allow_html=True
@@ -178,12 +481,24 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+nav1, nav2 = st.columns(2)
+
+with nav1:
+    if st.button("🔍 Resume Analyzer", use_container_width=True):
+        st.session_state.page = "Resume Analyzer"
+        st.rerun()
+
+with nav2:
+    if st.button("✨ AI CV Maker", use_container_width=True):
+        st.session_state.page = "AI CV Maker"
+        st.rerun()
+
 st.write("---")
 
 
-# --------------------------
-# Load Roles
-# --------------------------
+# =====================================================
+# LOAD ROLES
+# =====================================================
 try:
     with open("data/roles.json", "r") as file:
         roles_data = json.load(file)
@@ -198,9 +513,9 @@ if not job_roles:
     st.stop()
 
 
-# --------------------------
-# PDF Generator
-# --------------------------
+# =====================================================
+# PDF GENERATOR
+# =====================================================
 def create_pdf(resume_text):
     pdf = FPDF()
     pdf.add_page()
@@ -289,7 +604,6 @@ if st.session_state.page == "Resume Analyzer":
                 st.metric("AI Confidence", f'{ai.get("confidence", 0)}%')
 
             st.info(ai.get("summary", "No AI summary available."))
-
             st.write("---")
 
             st.subheader("📊 ATS Score")
@@ -351,6 +665,7 @@ if st.session_state.page == "Resume Analyzer":
 
         st.write("---")
         st.subheader("Don’t have a resume?")
+
         if st.button("✨ Create Resume with AI", use_container_width=True):
             st.session_state.page = "AI CV Maker"
             st.rerun()
@@ -364,10 +679,13 @@ elif st.session_state.page == "AI CV Maker":
     st.header("✨ AI CV Maker")
     st.caption("Enter your details and Gemini will generate a professional ATS-friendly resume.")
 
+    user = get_user(st.session_state.user_email)
+    default_name = user.get("name", "") if user else ""
+
     with st.form("cv_maker_form"):
 
-        name = st.text_input("Full Name")
-        email = st.text_input("Email")
+        name = st.text_input("Full Name", value=default_name)
+        email = st.text_input("Email", value=st.session_state.user_email)
         phone = st.text_input("Phone Number")
 
         target_role = st.selectbox("Target Job Role", job_roles, key="cv_role")
