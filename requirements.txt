@@ -8,3 +8,7 @@ plotly
 python-dotenv
 rapidfuzz
 google-genai
+pymongo
+resend
+python-dotenv
+streamlit-autorefresh
