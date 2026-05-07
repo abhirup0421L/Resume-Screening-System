@@ -21,6 +21,9 @@ from backend.auth import (
 )
 
 
+# --------------------------
+# Page Setup
+# --------------------------
 st.set_page_config(
     page_title="AI Resume Screening",
     page_icon="📄",
@@ -102,11 +105,6 @@ section[data-testid="stSidebar"] {
     color: #00ff4c;
     font-size: 18px;
     font-weight: 800;
-}
-
-.top-nav-box {
-    margin-top: 20px;
-    margin-bottom: 25px;
 }
 
 /* Login Card */
@@ -211,7 +209,6 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     color: black;
 }
 
-/* Download Buttons */
 .stDownloadButton > button {
     background: linear-gradient(90deg, #00ff4c, #00cc3a);
     color: black;
@@ -271,6 +268,9 @@ if not st.session_state.logged_in:
                     label_visibility="collapsed"
                 )
 
+                if login_email:
+                    login_email = login_email.strip().lower()
+
                 if st.button("Verify", use_container_width=True):
 
                     if not login_email:
@@ -282,6 +282,9 @@ if not st.session_state.logged_in:
                         if user and user.get("verified") is True:
                             st.session_state.logged_in = True
                             st.session_state.user_email = login_email
+                            st.session_state.otp_sent = False
+                            st.session_state.otp_start_time = None
+                            st.session_state.temp_email = ""
 
                             st.success("Login successful.")
                             time.sleep(1)
@@ -304,7 +307,9 @@ if not st.session_state.logged_in:
                     st.session_state.auth_mode = "signin"
                     st.session_state.otp_sent = False
                     st.session_state.otp_start_time = None
+                    st.session_state.temp_email = ""
                     st.rerun()
+
 
             elif st.session_state.auth_mode == "signin":
 
@@ -327,27 +332,38 @@ if not st.session_state.logged_in:
                     "",
                     placeholder="Enter your email",
                     key="signin_email",
-                    label_visibility="collapsed"
+                    label_visibility="collapsed",
+                    disabled=st.session_state.otp_sent
                 )
 
-                if st.button("Send OTP", use_container_width=True):
+                if signin_email:
+                    signin_email = signin_email.strip().lower()
+
+                if st.button(
+                    "Send OTP",
+                    use_container_width=True,
+                    disabled=st.session_state.otp_sent
+                ):
 
                     if signin_email:
 
                         with st.spinner("Sending OTP..."):
                             sent = send_login_otp(signin_email)
-                            st.session_state.temp_email = signin_email
 
                         if sent:
+                            st.session_state.temp_email = signin_email
                             st.session_state.otp_sent = True
                             st.session_state.otp_start_time = time.time()
+
                             st.success("OTP sent successfully.")
+                            st.rerun()
 
                         else:
                             st.error("Failed to send OTP.")
 
                     else:
                         st.error("Please enter email.")
+
 
                 if st.session_state.otp_sent:
 
@@ -365,6 +381,9 @@ if not st.session_state.logged_in:
                         label_visibility="collapsed"
                     )
 
+                    if otp:
+                        otp = otp.strip()
+
                     elapsed = int(time.time() - st.session_state.otp_start_time)
                     remaining = max(0, 300 - elapsed)
 
@@ -376,6 +395,8 @@ if not st.session_state.logged_in:
                     if remaining == 0:
                         st.session_state.otp_sent = False
                         st.session_state.otp_start_time = None
+                        st.session_state.temp_email = ""
+
                         st.error("OTP expired. Please send OTP again.")
                         st.rerun()
 
@@ -391,6 +412,7 @@ if not st.session_state.logged_in:
                             st.session_state.user_email = st.session_state.temp_email
                             st.session_state.otp_sent = False
                             st.session_state.otp_start_time = None
+                            st.session_state.temp_email = ""
 
                             st.success("Account created successfully.")
                             time.sleep(1)
@@ -413,6 +435,7 @@ if not st.session_state.logged_in:
                     st.session_state.auth_mode = "login"
                     st.session_state.otp_sent = False
                     st.session_state.otp_start_time = None
+                    st.session_state.temp_email = ""
                     st.rerun()
 
     st.stop()
