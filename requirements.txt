@@ -12,3 +12,4 @@ pymongo
 resend
 python-dotenv
 streamlit-autorefresh
+bcrypt
