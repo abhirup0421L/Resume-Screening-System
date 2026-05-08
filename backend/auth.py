@@ -1,5 +1,3 @@
-# backend/auth.py
-
 import random
 import bcrypt
 from datetime import datetime, timedelta
@@ -18,10 +16,10 @@ def generate_otp():
 
 
 def hash_password(password):
-    password_bytes = password.encode("utf-8")
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(password_bytes, salt)
-    return hashed.decode("utf-8")
+    return bcrypt.hashpw(
+        password.encode("utf-8"),
+        bcrypt.gensalt()
+    ).decode("utf-8")
 
 
 def check_password(password, hashed_password):
@@ -33,20 +31,24 @@ def check_password(password, hashed_password):
 
 def send_login_otp(email):
     email = clean_email(email)
-    otp = generate_otp()
-    expires_at = datetime.utcnow() + timedelta(minutes=OTP_EXPIRY_MINUTES)
 
     existing_user = users_collection.find_one({"email": email})
+
+    if existing_user and existing_user.get("verified") and existing_user.get("password_hash"):
+        return False
+
+    otp = generate_otp()
+    expires_at = datetime.utcnow() + timedelta(minutes=OTP_EXPIRY_MINUTES)
 
     update_data = {
         "email": email,
         "otp": otp,
         "otp_expires_at": expires_at,
+        "verified": False,
         "updated_at": datetime.utcnow()
     }
 
     if not existing_user:
-        update_data["verified"] = False
         update_data["created_at"] = datetime.utcnow()
 
     users_collection.update_one(
@@ -76,12 +78,7 @@ def verify_otp_only(email, entered_otp):
     if datetime.utcnow() > expires_at:
         users_collection.update_one(
             {"email": email},
-            {
-                "$unset": {
-                    "otp": "",
-                    "otp_expires_at": ""
-                }
-            }
+            {"$unset": {"otp": "", "otp_expires_at": ""}}
         )
         return False, "OTP expired. Please send OTP again."
 
@@ -97,6 +94,9 @@ def verify_otp_and_create_account(email, entered_otp, password):
 
     user = users_collection.find_one({"email": email})
 
+    if user and user.get("verified") and user.get("password_hash"):
+        return True, "Account created successfully."
+
     if not user:
         return False, "User not found. Please send OTP again."
 
@@ -109,34 +109,29 @@ def verify_otp_and_create_account(email, entered_otp, password):
     if datetime.utcnow() > expires_at:
         users_collection.update_one(
             {"email": email},
-            {
-                "$unset": {
-                    "otp": "",
-                    "otp_expires_at": ""
-                }
-            }
+            {"$unset": {"otp": "", "otp_expires_at": ""}}
         )
         return False, "OTP expired. Please send OTP again."
 
     if saved_otp != entered_otp:
-        return False, "Invalid OTP. Please enter the latest OTP."
+        return False, "Invalid OTP."
 
-    if len(password) < 6:
-        return False, "Password must be at least 6 characters."
-
-    password_hash = hash_password(password)
+    hashed_password = hash_password(password)
 
     users_collection.update_one(
         {"email": email},
         {
             "$set": {
                 "verified": True,
-                "password_hash": password_hash,
-                "last_login": datetime.utcnow()
+                "password_hash": hashed_password,
+                "credits": 100,
+                "last_login": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
             },
             "$unset": {
                 "otp": "",
-                "otp_expires_at": ""
+                "otp_expires_at": "",
+                "password": ""
             }
         }
     )
