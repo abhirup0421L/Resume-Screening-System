@@ -939,6 +939,22 @@ with st.sidebar:
 
         st.rerun()
 
+    st.markdown(
+        """
+        <div style="
+            position: fixed;
+            bottom: 10px;
+            left: 25px;
+            color: #666666;
+            font-size: 12px;
+            font-weight: 600;
+        ">
+            v1.2.2
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
 
 # =====================================================
 # HEADER
