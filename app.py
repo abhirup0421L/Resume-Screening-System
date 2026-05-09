@@ -72,7 +72,7 @@ if st.query_params.get("admin") == "1":
 
     .admin-title {
         text-align: center;
-        color: #00ff4c;
+        color: #ff2b2b;
         font-size: 42px;
         font-weight: 900;
         letter-spacing: 8px;
@@ -242,6 +242,7 @@ if st.query_params.get("admin") == "1":
 defaults = {
     "page": "Resume Analyzer",
     "logged_in": False,
+    "show_welcome": True,
     "user_email": "",
     "temp_email": "",
     "auth_mode": "login",
@@ -446,6 +447,86 @@ div[data-testid="stMetric"] {
 </style>
 """, unsafe_allow_html=True)
 
+# =====================================================
+# WELCOME SCREEN
+# =====================================================
+
+if st.session_state.show_welcome:
+
+    st.markdown("""
+    <style>
+    .welcome-bg {
+        position: fixed;
+        inset: 0;
+        overflow: hidden;
+        z-index: 0;
+        pointer-events: none;
+    }
+
+    .dot {
+        position: absolute;
+        width: 180px;
+        height: 180px;
+        background: rgba(0,255,76,0.25);
+        filter: blur(70px);
+        border-radius: 50%;
+        animation: float 6s ease-in-out infinite alternate;
+    }
+
+    .dot1 { top: 20%; left: 15%; animation-delay: 0s; }
+    .dot2 { top: 60%; left: 70%; animation-delay: 2s; }
+    .dot3 { top: 40%; left: 45%; animation-delay: 4s; }
+
+    @keyframes float {
+        from {
+            transform: translate(0px, 0px);
+            opacity: 0.7;
+        }
+
+        to {
+            transform: translate(70px, -70px);
+            opacity: 1;
+        }
+    }
+
+    .welcome-title {
+        text-align:center;
+        color:#00ff4c;
+        font-size:72px;
+        font-weight:900;
+        margin-top:120px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .welcome-sub {
+        text-align:center;
+        color:#BBBBBB;
+        font-size:30px;
+        margin-bottom:420px;
+        position: relative;
+        z-index: 1;
+    }
+    </style>
+
+    <div class="welcome-bg">
+        <div class="dot dot1"></div>
+        <div class="dot dot2"></div>
+        <div class="dot dot3"></div>
+    </div>
+
+    <div class="welcome-title">⚡ Resume AI</div>
+    <div class="welcome-sub">Smart ATS Resume Analyzer + AI CV Maker</div>
+    """, unsafe_allow_html=True)
+
+    left, center, right = st.columns([2,1,2])
+
+    with center:
+        if st.button("🚀 Get Started", use_container_width=True):
+            st.session_state.show_welcome = False
+            st.rerun()
+
+    st.stop()
 
 # =====================================================
 # LOGIN / SIGNUP UI
