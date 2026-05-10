@@ -7,7 +7,8 @@ import os
 from dotenv import load_dotenv
 from backend.database import (
     cache_collection,
-    coupons_collection
+    coupons_collection,
+    settings_collection
 )
 load_dotenv()
 import plotly.graph_objects as go
@@ -38,6 +39,121 @@ from backend.resume_cache import (
 )
 from backend.gemini_queue import wait_for_gemini_slot
 
+from backend.interview import (
+    LEVEL_DETAILS,
+    generate_interview_questions,
+    check_answers,
+    update_user_progress,
+    get_user_progress
+)
+
+# =====================================================
+# MAINTENANCE MODE FUNCTIONS
+# =====================================================
+
+def get_maintenance_mode():
+
+    doc = settings_collection.find_one(
+        {"key": "maintenance_mode"}
+    )
+
+    return bool(
+        doc and doc.get("enabled")
+    )
+
+
+def set_maintenance_mode(value):
+
+    settings_collection.update_one(
+        {"key": "maintenance_mode"},
+
+        {
+            "$set": {
+                "enabled": value
+            }
+        },
+
+        upsert=True
+    )
+
+from datetime import datetime, timedelta, timezone
+
+
+# =====================================================
+# MAINTENANCE MODE FUNCTIONS
+# =====================================================
+
+def get_maintenance_mode():
+    doc = settings_collection.find_one({"key": "maintenance_mode"})
+
+    if not doc or not doc.get("enabled"):
+        return False, None
+
+    end_time = doc.get("end_time")
+
+    if end_time and datetime.now(timezone.utc) >= end_time.replace(tzinfo=timezone.utc):
+        set_maintenance_mode(False)
+        return False, None
+
+    return True, end_time
+
+
+def set_maintenance_mode(value, minutes=None):
+
+    if value:
+
+        end_time = None
+
+        if minutes:
+            end_time = (
+                datetime.now(timezone.utc)
+                + timedelta(minutes=minutes)
+            )
+
+        settings_collection.update_one(
+            {"key": "maintenance_mode"},
+            {
+                "$set": {
+                    "enabled": True,
+                    "end_time": end_time
+                }
+            },
+            upsert=True
+        )
+
+    else:
+
+        settings_collection.update_one(
+            {"key": "maintenance_mode"},
+            {
+                "$set": {
+                    "enabled": False,
+                    "end_time": None
+                }
+            },
+            upsert=True
+        )
+
+
+def add_maintenance_time(minutes):
+    doc = settings_collection.find_one({"key": "maintenance_mode"})
+    now = datetime.now(timezone.utc)
+
+    old_end = doc.get("end_time") if doc else None
+
+    if old_end:
+        old_end = old_end.replace(tzinfo=timezone.utc)
+        base_time = max(old_end, now)
+    else:
+        base_time = now
+
+    new_end = base_time + timedelta(minutes=minutes)
+
+    settings_collection.update_one(
+        {"key": "maintenance_mode"},
+        {"$set": {"enabled": True, "end_time": new_end}},
+        upsert=True
+    )
 
 # =====================================================
 # PAGE CONFIG
@@ -48,6 +164,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+
 
 # =====================================================
 # ADMIN PAGE
@@ -218,6 +336,35 @@ if st.query_params.get("admin") == "1":
 
             st.metric("Active Coupons", active_coupons)
 
+            # =====================================================
+            # MAINTENANCE MODE
+            # =====================================================
+
+            st.markdown("---")
+            st.subheader("🚧 Maintenance Mode")
+
+            maintenance_minutes = st.number_input(
+                "Maintenance time in minutes",
+                min_value=1,
+                value=10,
+                step=1
+            )
+
+            if st.button("🚧 Start Maintenance", use_container_width=True):
+                set_maintenance_mode(True, maintenance_minutes)
+                st.success("Maintenance mode started.")
+                st.rerun()
+
+            if st.button("➕ Add More Time", use_container_width=True):
+                add_maintenance_time(maintenance_minutes)
+                st.success("Maintenance time increased.")
+                st.rerun()
+
+            if st.button("✅ Stop Maintenance", use_container_width=True):
+                set_maintenance_mode(False)
+                st.success("Maintenance mode stopped.")
+                st.rerun()
+
             if st.button("Logout", use_container_width=True):
                 st.session_state.admin_logged_in = False
                 st.rerun()
@@ -233,6 +380,99 @@ if st.query_params.get("admin") == "1":
                 """,
                 unsafe_allow_html=True
             )
+
+    st.stop()
+
+
+
+
+# ================================
+# FULLSCREEN LOCK SCREEN
+# ================================
+
+maintenance_on, maintenance_end = get_maintenance_mode()
+
+if maintenance_on and st.query_params.get("admin") != "1":
+
+    remaining_text = "00:00"
+
+    if maintenance_end:
+        try:
+            if maintenance_end.tzinfo is None:
+                maintenance_end = maintenance_end.replace(tzinfo=timezone.utc)
+
+            remaining = maintenance_end - datetime.now(timezone.utc)
+            total_seconds = max(0, int(remaining.total_seconds()))
+
+            hours = total_seconds // 3600
+            mins = (total_seconds % 3600) // 60
+            secs = total_seconds % 60
+
+            remaining_text = f"{hours:02d}:{mins:02d}:{secs:02d}"
+
+        except Exception:
+            remaining_text = "Timer Error"
+
+    html_code = f"""
+    <style>
+    .construction-overlay {{
+        position: fixed;
+        inset: 0;
+        background: black;
+        z-index: 999999;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }}
+
+    .construction-text {{
+        color: red;
+        font-size: 90px;
+        font-weight: 900;
+        letter-spacing: 6px;
+        text-align: center;
+    }}
+
+    .construction-timer {{
+        color: #00ff4c;
+        font-size: 46px;
+        font-weight: 900;
+        margin-top: 35px;
+        text-align: center;
+    }}
+
+    .admin-link {{
+        position: fixed;
+        bottom: 20px;
+        right: 30px;
+        color: #00ff4c !important;
+        font-size: 14px;
+        font-weight: 700;
+        z-index: 1000000;
+        text-decoration: none;
+    }}
+    </style>
+
+    <div class="construction-overlay">
+
+        <div class="construction-text">
+            🚧 UNDER CONSTRUCTION 🚧
+        </div>
+
+        <div class="construction-timer">
+            ⏱️ {remaining_text}
+        </div>
+
+    </div>
+
+    <a class="admin-link" href="?admin=1">admin</a>
+    """
+
+    st.html(html_code)
+
+    time.sleep(1)
+    st.rerun()
 
     st.stop()
 
@@ -949,7 +1189,7 @@ with st.sidebar:
             font-size: 12px;
             font-weight: 600;
         ">
-            v1.2.2
+            v1.3.1
         </div>
         """,
         unsafe_allow_html=True
@@ -993,7 +1233,7 @@ st.markdown(
 )
 st.warning("⚠️ Saved resume analysis data is automatically cleared after 10 minutes.")
 
-nav1, nav2 = st.columns(2)
+nav1, nav2, nav3 = st.columns(3)
 
 with nav1:
     if st.button("🔍 Resume Analyzer", use_container_width=True):
@@ -1003,6 +1243,14 @@ with nav1:
 with nav2:
     if st.button("✨ AI CV Maker", use_container_width=True):
         st.session_state.page = "AI CV Maker"
+        st.rerun()
+
+with nav3:
+    if st.button(
+        "🎯 Interview Prep",
+        use_container_width=True
+    ):
+        st.session_state.page = "Interview Prep"
         st.rerun()
 
 st.write("---")
@@ -1373,4 +1621,258 @@ elif st.session_state.page == "AI CV Maker":
 
         if st.button("🔍 Analyze This Resume", use_container_width=True):
             st.session_state.page = "Resume Analyzer"
+            st.rerun()
+
+# =====================================================
+# INTERVIEW PREP PAGE
+# =====================================================
+
+if st.session_state.page == "Interview Prep":
+
+    st.markdown("## 🎯 Interview Preparation & Skill Test")
+
+    interview_role = st.selectbox(
+        "Choose Job Role",
+        job_roles,
+        key="interview_role"
+    )
+
+    progress = get_user_progress(
+        st.session_state.user_email,
+        interview_role
+    )
+
+    unlocked_level = progress.get("unlocked_level", 1)
+    stars = progress.get("stars", 0)
+    best_score = progress.get("best_score", 0)
+
+    st.info(f"⭐ Stars: {stars} | 🏆 Best Score: {best_score}%")
+
+    st.markdown("""
+    <style>
+    .level-card {
+        border: 1px solid #333;
+        border-radius: 18px;
+        padding: 18px;
+        text-align: center;
+        background: #111111;
+        min-height: 300px;
+        margin-bottom: 12px;
+    }
+
+    .level-title {
+        color: #00ff4c;
+        font-size: 26px;
+        font-weight: 900;
+        margin-bottom: 18px;
+    }
+
+    .level-info {
+        background: #1A1F2E;
+        color: white;
+        padding: 10px;
+        border-radius: 10px;
+        margin: 10px 0;
+        font-size: 15px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # =====================================================
+    # LEVELS SECTION
+    # =====================================================
+
+    if "interview_questions" not in st.session_state:
+
+        st.markdown("## Levels")
+
+        cols = st.columns(5)
+
+        for level in range(1, 6):
+
+            with cols[level - 1]:
+
+                details = LEVEL_DETAILS[level]
+
+                with st.container(border=True):
+
+                    st.markdown(f"### Level {level}")
+
+                    st.info(details["difficulty"])
+
+                    st.info(f'{details["questions"]} Questions')
+
+                    st.info(f'⏱ {details["time"] // 60} mins')
+
+                    st.info("🪙 50 Credits")
+
+                if level <= unlocked_level:
+
+                    if st.button(
+                        f"Start Level {level}",
+                        key=f"start_interview_level_{level}",
+                        use_container_width=True
+                    ):
+
+                        success, message, questions = generate_interview_questions(
+                            st.session_state.user_email,
+                            interview_role,
+                            level
+                        )
+
+                        if success:
+                            st.session_state.interview_questions = questions
+                            st.session_state.interview_level = level
+                            st.session_state.interview_role_active = interview_role
+                            st.session_state.interview_start_time = time.time()
+                            st.session_state.interview_time_limit = LEVEL_DETAILS[level]["time"]
+                            st.rerun()
+                        else:
+                            st.error(message)
+
+                else:
+
+                    st.button(
+                        "🔒 Locked",
+                        key=f"locked_interview_level_{level}",
+                        disabled=True,
+                        use_container_width=True
+                    )
+    
+    # =====================================================
+    # RESULT POPUP
+    # =====================================================
+
+    @st.dialog("🎉 Level Completed")
+    def result_popup():
+
+        st.markdown("""
+        <style>
+
+        /* POPUP BOX */
+        div[data-testid="stDialog"] section[role="dialog"]{
+            background: #000000 !important;
+            border: 2px solid #00ff4c !important;
+            border-radius: 22px !important;
+
+            box-shadow:
+                0 0 10px #00ff4c,
+                0 0 20px #00ff4c,
+                0 0 40px rgba(0,255,76,0.7),
+                0 0 80px rgba(0,255,76,0.4) !important;
+        }
+
+        </style>
+        """, unsafe_allow_html=True)
+
+        st.success("🎉 Congrats!")
+
+        st.markdown(
+            f"## You completed Level {st.session_state.interview_level}"
+        )
+
+        st.info(
+            f"✅ Correct Answers: {st.session_state.correct_answers}"
+        )
+
+        st.error(
+            f"❌ Wrong Answers: {st.session_state.wrong_answers}"
+        )
+
+        st.success(
+            f"🏆 Final Score: {st.session_state.final_score}%"
+        )
+
+        if st.button(
+            "Continue",
+            use_container_width=True,
+            key="continue_result_popup"
+        ):
+            st.session_state.show_result_popup = False
+
+            if "interview_questions" in st.session_state:
+                del st.session_state["interview_questions"]
+
+            st.rerun()
+
+
+    if st.session_state.get("show_result_popup"):
+        result_popup()
+        st.stop()
+
+    # =====================================================
+    # ACTIVE EXAM
+    # =====================================================
+
+    if "interview_questions" in st.session_state:
+        # TIMER
+        st_autorefresh(interval=1000, key="interview_timer_refresh")
+
+        elapsed = int(time.time() - st.session_state.interview_start_time)
+        remaining = st.session_state.interview_time_limit - elapsed
+
+        if remaining <= 0:
+            remaining = 0
+            st.session_state.auto_submit_interview = True
+
+        mins = remaining // 60
+        secs = remaining % 60
+
+        st.warning(f"⏱ Time Left: {mins:02d}:{secs:02d}")
+
+
+        st.markdown("---")
+        st.subheader(f"📝 Level {st.session_state.interview_level} Test")
+
+        user_answers = {}
+        questions = st.session_state.interview_questions
+
+        for i, q in enumerate(questions):
+
+            st.markdown(f"### Q{i + 1}. {q['question']}")
+
+            answer = st.radio(
+                "Choose Answer",
+                q["options"],
+                key=f"interview_answer_{i}",
+                index=None
+            )
+
+            user_answers[str(i)] = answer
+
+        if st.button(
+            "🚀 Submit Test",
+            use_container_width=True,
+            key="submit_interview_test"
+        ) or st.session_state.get("auto_submit_interview"):
+
+            score, results = check_answers(
+                questions,
+                user_answers
+            )
+
+            stars_earned, new_level = update_user_progress(
+                st.session_state.user_email,
+                st.session_state.interview_role_active,
+                st.session_state.interview_level,
+                score
+            )
+
+            st.session_state.show_result_popup = True
+
+            st.session_state.final_score = score
+
+            st.session_state.correct_answers = sum(
+                1 for r in results if r["is_correct"]
+            )
+
+            st.session_state.wrong_answers = sum(
+                1 for r in results if not r["is_correct"]
+            )
+
+            st.session_state.result_details = results
+
+            # RESET AUTO SUBMIT
+            st.session_state.auto_submit_interview = False
+
             st.rerun()
