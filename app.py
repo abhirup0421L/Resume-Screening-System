@@ -1806,7 +1806,8 @@ if st.session_state.page == "Interview Prep":
 
     if "interview_questions" in st.session_state:
         # TIMER
-        st_autorefresh(interval=1000, key="interview_timer_refresh")
+        if not st.session_state.get("submitting_interview", False):
+            st_autorefresh(interval=5000, key="interview_timer_refresh")
 
         elapsed = int(time.time() - st.session_state.interview_start_time)
         remaining = st.session_state.interview_time_limit - elapsed
@@ -1840,11 +1841,15 @@ if st.session_state.page == "Interview Prep":
 
             user_answers[str(i)] = answer
 
-        if st.button(
+        submit_clicked = st.button(
             "🚀 Submit Test",
             use_container_width=True,
             key="submit_interview_test"
-        ) or st.session_state.get("auto_submit_interview"):
+        )
+
+        if submit_clicked or st.session_state.get("auto_submit_interview", False):
+
+            st.session_state.submitting_interview = True
 
             score, results = check_answers(
                 questions,
@@ -1859,7 +1864,6 @@ if st.session_state.page == "Interview Prep":
             )
 
             st.session_state.show_result_popup = True
-
             st.session_state.final_score = score
 
             st.session_state.correct_answers = sum(
@@ -1872,7 +1876,7 @@ if st.session_state.page == "Interview Prep":
 
             st.session_state.result_details = results
 
-            # RESET AUTO SUBMIT
             st.session_state.auto_submit_interview = False
+            st.session_state.submitting_interview = False
 
             st.rerun()
