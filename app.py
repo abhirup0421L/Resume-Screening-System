@@ -484,6 +484,7 @@ defaults = {
     "logged_in": False,
     "show_welcome": True,
     "user_email": "",
+    "creating_account": False,
     "temp_email": "",
     "auth_mode": "login",
     "otp_sent": False,
@@ -1040,15 +1041,26 @@ if not st.session_state.logged_in:
                             label_visibility="collapsed"
                         )
 
-                        if st.button("Create Account", use_container_width=True):
+                        if st.button(
+                            "Create Account",
+                            use_container_width=True,
+                            disabled=st.session_state.get("creating_account", False)
+                        ):
+
+                            st.session_state.creating_account = True
 
                             if not new_password or not confirm_password:
+
+                                st.session_state.creating_account = False
                                 st.error("Please fill password fields.")
 
                             elif new_password != confirm_password:
+
+                                st.session_state.creating_account = False
                                 st.error("Passwords do not match.")
 
                             else:
+
                                 success, message = verify_otp_and_create_account(
                                     st.session_state.temp_email,
                                     st.session_state.verified_otp_value,
@@ -1056,6 +1068,7 @@ if not st.session_state.logged_in:
                                 )
 
                                 if success:
+
                                     st.session_state.logged_in = True
                                     st.session_state.user_email = st.session_state.temp_email
 
@@ -1066,10 +1079,15 @@ if not st.session_state.logged_in:
                                     st.session_state.verified_otp_value = ""
 
                                     st.success(message)
+
+                                    st.session_state.creating_account = False
+
                                     time.sleep(1)
                                     st.rerun()
 
                                 else:
+
+                                    st.session_state.creating_account = False
                                     st.error(message)
 
                 st.markdown(
