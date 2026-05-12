@@ -518,49 +518,49 @@ section[data-testid="stSidebar"] {
 div[data-testid="stVerticalBlockBorderWrapper"] {
     border: 1px solid #2a2a2a !important;
     border-radius: 14px !important;
-    padding: 35px !important;
+    padding: 22px !important;
     background: rgba(10,10,10,0.95) !important;
 }
 
 .auth-small-title {
     text-align: center;
     color: white;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 800;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
 }
 
 .auth-big-title {
     text-align: center;
     color: #00ff4c;
-    font-size: 44px;
+    font-size: 38px;
     font-weight: 900;
-    letter-spacing: 12px;
-    margin-bottom: 35px;
+    letter-spacing: 6px;
+    margin-bottom: 18px;
 }
 
 .auth-label {
     color: white;
     font-size: 14px;
     font-weight: 800;
-    margin-bottom: 8px;
-    margin-top: 8px;
+    margin-bottom: 6px;
+    margin-top: 6px;
 }
 
 .auth-bottom {
     color: white;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
-    margin-top: 10px;
-    margin-bottom: 10px;
+    margin-top: 8px;
+    margin-bottom: 8px;
 }
 
 .auth-or {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     color: #AAAAAA;
-    margin: 28px 0;
+    margin: 18px 0;
     font-weight: 700;
 }
 
@@ -573,7 +573,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 }
 
 div[data-testid="stTextInput"] {
-    margin-bottom: 16px !important;
+    margin-bottom: 12px !important;
 }
 
 div[data-testid="stTextInput"] input {
@@ -581,7 +581,7 @@ div[data-testid="stTextInput"] input {
     color: white !important;
     border: 1px solid #2a2a2a !important;
     border-radius: 12px !important;
-    height: 48px !important;
+    height: 44px !important;
     box-shadow: none !important;
     outline: none !important;
 }
@@ -624,7 +624,7 @@ div[data-baseweb="select"] > div:focus-within {
     color: black;
     border: none;
     border-radius: 12px;
-    height: 50px;
+    height: 46px;
     font-weight: 900;
 }
 
@@ -638,7 +638,7 @@ div[data-baseweb="select"] > div:focus-within {
     color: black;
     border: none;
     border-radius: 12px;
-    height: 48px;
+    height: 46px;
     font-weight: 900;
 }
 
@@ -649,13 +649,13 @@ div[data-baseweb="select"] > div:focus-within {
 
 .main-title {
     color: white;
-    font-size: 42px;
+    font-size: 38px;
     font-weight: 900;
 }
 
 .main-subtitle {
     color: #BBBBBB;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 
 .user-badge {
@@ -670,7 +670,7 @@ div[data-baseweb="select"] > div:focus-within {
 
 div[data-testid="stMetric"] {
     background-color: #111111;
-    padding: 20px;
+    padding: 16px;
     border-radius: 18px;
     border: 1px solid #2a2a2a;
 }
@@ -679,10 +679,10 @@ div[data-testid="stMetric"] {
     background: #111111;
     border: 1px solid #2a2a2a;
     border-radius: 14px;
-    padding: 14px;
+    padding: 12px;
     color: #00ff4c;
     font-weight: 900;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
 </style>
@@ -1213,7 +1213,7 @@ with st.sidebar:
             font-size: 12px;
             font-weight: 600;
         ">
-            v1.3.4 bug fixed
+            v1.3.6 bug fixed
         </div>
         """,
         unsafe_allow_html=True
