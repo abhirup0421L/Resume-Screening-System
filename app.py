@@ -1213,7 +1213,7 @@ with st.sidebar:
             font-size: 12px;
             font-weight: 600;
         ">
-            v1.3.2 bug fixed
+            v1.3.4 bug fixed
         </div>
         """,
         unsafe_allow_html=True
