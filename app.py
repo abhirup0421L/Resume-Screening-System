@@ -744,7 +744,7 @@ if st.session_state.show_welcome:
         text-align:center;
         color:#BBBBBB;
         font-size:30px;
-        margin-bottom:420px;
+        margin-bottom:50px;
         position: relative;
         z-index: 1;
     }
