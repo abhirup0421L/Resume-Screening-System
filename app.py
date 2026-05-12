@@ -941,7 +941,9 @@ if not st.session_state.logged_in:
                 # ==========================
                 if st.session_state.otp_sent:
 
-                    st_autorefresh(interval=1000, key="otp_refresh")
+                    # refresh ONLY until OTP is verified
+                    if not st.session_state.otp_verified_for_signup:
+                        st_autorefresh(interval=1000, key="otp_refresh")
 
                     st.markdown(
                         '<div class="auth-label">Enter OTP</div>',
@@ -959,40 +961,42 @@ if not st.session_state.logged_in:
                     if otp:
                         otp = otp.strip()
 
-                    elapsed = int(time.time() - st.session_state.otp_start_time)
-                    remaining = max(0, 300 - elapsed)
+                    if st.session_state.otp_verified_for_signup:
+                        st.success("OTP verified. Now set your password.")
 
-                    mins = remaining // 60
-                    secs = remaining % 60
+                    else:
+                        elapsed = int(time.time() - st.session_state.otp_start_time)
+                        remaining = max(0, 300 - elapsed)
 
-                    st.markdown(
-                        f"""
-                        <div style="
-                            background:#102033;
-                            color:#00ff4c;
-                            padding:12px;
-                            border-radius:10px;
-                            margin-top:-8px;
-                            margin-bottom:18px;
-                            font-weight:700;
-                        ">
-                            OTP expires in: {mins:02d}:{secs:02d}
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+                        mins = remaining // 60
+                        secs = remaining % 60
 
-                    if remaining == 0:
-                        st.session_state.otp_sent = False
-                        st.session_state.otp_start_time = None
-                        st.session_state.temp_email = ""
-                        st.session_state.otp_verified_for_signup = False
-                        st.session_state.verified_otp_value = ""
+                        st.markdown(
+                            f"""
+                            <div style="
+                                background:#102033;
+                                color:#00ff4c;
+                                padding:12px;
+                                border-radius:10px;
+                                margin-top:-8px;
+                                margin-bottom:18px;
+                                font-weight:700;
+                            ">
+                                OTP expires in: {mins:02d}:{secs:02d}
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
 
-                        st.error("OTP expired. Please send OTP again.")
-                        st.rerun()
+                        if remaining == 0:
+                            st.session_state.otp_sent = False
+                            st.session_state.otp_start_time = None
+                            st.session_state.temp_email = ""
+                            st.session_state.otp_verified_for_signup = False
+                            st.session_state.verified_otp_value = ""
 
-                    if not st.session_state.otp_verified_for_signup:
+                            st.error("OTP expired. Please send OTP again.")
+                            st.rerun()
 
                         if st.button("Verify OTP", use_container_width=True):
 
@@ -1008,6 +1012,7 @@ if not st.session_state.logged_in:
                                 if success:
                                     st.session_state.otp_verified_for_signup = True
                                     st.session_state.verified_otp_value = otp
+                                    st.session_state.otp_start_time = None
 
                                     st.success("OTP verified. Now set your password.")
                                     st.rerun()
