@@ -998,27 +998,28 @@ if not st.session_state.logged_in:
                             st.error("OTP expired. Please send OTP again.")
                             st.rerun()
 
-                        if st.button("Verify OTP", use_container_width=True):
+                        # AUTO VERIFY OTP
+                        if (
+                            otp
+                            and len(otp) == 6
+                            and not st.session_state.otp_verified_for_signup
+                        ):
 
-                            if not otp:
-                                st.error("Please enter OTP.")
+                            success, message = verify_otp_only(
+                                st.session_state.temp_email,
+                                otp
+                            )
+
+                            if success:
+                                st.session_state.otp_verified_for_signup = True
+                                st.session_state.verified_otp_value = otp
+                                st.session_state.otp_start_time = None
+
+                                st.success("OTP verified. Now set your password.")
+                                st.rerun()
 
                             else:
-                                success, message = verify_otp_only(
-                                    st.session_state.temp_email,
-                                    otp
-                                )
-
-                                if success:
-                                    st.session_state.otp_verified_for_signup = True
-                                    st.session_state.verified_otp_value = otp
-                                    st.session_state.otp_start_time = None
-
-                                    st.success("OTP verified. Now set your password.")
-                                    st.rerun()
-
-                                else:
-                                    st.error(message)
+                                st.error(message)
 
                     # ==========================
                     # PASSWORD SECTION
