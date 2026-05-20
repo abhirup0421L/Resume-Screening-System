@@ -13,3 +13,4 @@ resend
 python-dotenv
 streamlit-autorefresh
 bcrypt
+python-docx
