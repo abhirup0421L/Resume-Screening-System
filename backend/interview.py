@@ -1,8 +1,11 @@
+# backend/interview.py
+
 import json
-from datetime import datetime
-from google import genai
 import os
+import streamlit as st
+from datetime import datetime
 from dotenv import load_dotenv
+from google import genai
 
 from backend.database import interview_progress_collection
 from backend.credits import get_credits, deduct_credit
@@ -10,56 +13,29 @@ from backend.credits import get_credits, deduct_credit
 load_dotenv()
 
 
+def get_api_key():
+    try:
+        return st.secrets["GEMINI_API_KEY"]
+    except Exception:
+        return os.getenv("GEMINI_API_KEY")
 
-client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY")
-)
 
-# =====================================================
-# SETTINGS
-# =====================================================
+API_KEY = get_api_key()
+client = genai.Client(api_key=API_KEY) if API_KEY else None
+
 
 INTERVIEW_LEVEL_COST = 50
 
 LEVEL_DETAILS = {
-    1: {
-        "difficulty": "Easy",
-        "questions": 5,
-        "time": 300
-    },
-
-    2: {
-        "difficulty": "Basic",
-        "questions": 5,
-        "time": 420
-    },
-
-    3: {
-        "difficulty": "Intermediate",
-        "questions": 7,
-        "time": 600
-    },
-
-    4: {
-        "difficulty": "Advanced",
-        "questions": 8,
-        "time": 720
-    },
-
-    5: {
-        "difficulty": "Real Interview Level",
-        "questions": 10,
-        "time": 900
-    }
+    1: {"difficulty": "Easy", "questions": 5, "time": 300},
+    2: {"difficulty": "Basic", "questions": 5, "time": 420},
+    3: {"difficulty": "Intermediate", "questions": 7, "time": 600},
+    4: {"difficulty": "Advanced", "questions": 8, "time": 720},
+    5: {"difficulty": "Real Interview Level", "questions": 10, "time": 900}
 }
 
 
-# =====================================================
-# USER PROGRESS
-# =====================================================
-
 def get_user_progress(email, role):
-
     email = email.strip().lower()
 
     progress = interview_progress_collection.find_one({
@@ -68,7 +44,6 @@ def get_user_progress(email, role):
     })
 
     if not progress:
-
         progress = {
             "email": email,
             "role": role,
@@ -84,17 +59,13 @@ def get_user_progress(email, role):
     return progress
 
 
-# =====================================================
-# GENERATE QUESTIONS
-# =====================================================
-
 def generate_interview_questions(email, role, level):
+    if not API_KEY or client is None:
+        return False, "Gemini API key missing.", []
 
     level = int(level)
-
     details = LEVEL_DETAILS[level]
 
-    # CHECK CREDITS
     credits = get_credits(email)
 
     if credits < INTERVIEW_LEVEL_COST:
@@ -133,7 +104,6 @@ JSON FORMAT:
 """
 
     try:
-
         response = client.models.generate_content(
             model="gemini-2.5-flash-lite",
             contents=prompt
@@ -148,32 +118,22 @@ JSON FORMAT:
 
         questions = json.loads(text)
 
-        # DEDUCT CREDITS ONLY AFTER SUCCESS
         deduct_credit(email, INTERVIEW_LEVEL_COST)
 
         return True, "Questions generated successfully.", questions
 
-    except Exception:
-
+    except Exception as e:
+        print("Interview Generation Error:", e)
         return False, "Generation failed. Try again later.", []
 
 
-# =====================================================
-# CHECK ANSWERS
-# =====================================================
-
 def check_answers(questions, user_answers):
-
     correct = 0
-
     results = []
 
     for i, q in enumerate(questions):
-
         user_answer = user_answers.get(str(i), "")
-
         correct_answer = q.get("correct_answer", "")
-
         is_correct = user_answer == correct_answer
 
         if is_correct:
@@ -187,81 +147,42 @@ def check_answers(questions, user_answers):
             "explanation": q.get("explanation", "")
         })
 
-    score = int(
-        (correct / len(questions)) * 100
-    ) if questions else 0
+    score = int((correct / len(questions)) * 100) if questions else 0
 
     return score, results
 
 
-# =====================================================
-# STAR SYSTEM
-# =====================================================
-
 def calculate_stars(score):
-
     if score >= 80:
         return 3
-
     elif score >= 60:
         return 2
-
     elif score >= 40:
         return 1
 
     return 0
 
 
-# =====================================================
-# UPDATE PROGRESS
-# =====================================================
-
 def update_user_progress(email, role, level, score):
-
     email = email.strip().lower()
-
     level = int(level)
 
     stars = calculate_stars(score)
-
     progress = get_user_progress(email, role)
 
-    unlocked_level = progress.get(
-        "unlocked_level",
-        1
-    )
+    unlocked_level = progress.get("unlocked_level", 1)
+    completed_levels = progress.get("completed_levels", [])
+    total_stars = progress.get("stars", 0)
+    best_score = progress.get("best_score", 0)
 
-    completed_levels = progress.get(
-        "completed_levels",
-        []
-    )
-
-    total_stars = progress.get(
-        "stars",
-        0
-    )
-
-    best_score = progress.get(
-        "best_score",
-        0
-    )
-
-    # PASS CONDITION
     if score >= 60:
-
         if level not in completed_levels:
-
             completed_levels.append(level)
-
             total_stars += stars
 
-        if (
-            level == unlocked_level
-            and unlocked_level < 5
-        ):
+        if level == unlocked_level and unlocked_level < 5:
             unlocked_level += 1
 
-    # BEST SCORE
     if score > best_score:
         best_score = score
 
@@ -270,7 +191,6 @@ def update_user_progress(email, role, level, score):
             "email": email,
             "role": role
         },
-
         {
             "$set": {
                 "unlocked_level": unlocked_level,
@@ -280,7 +200,6 @@ def update_user_progress(email, role, level, score):
                 "updated_at": datetime.utcnow()
             }
         },
-
         upsert=True
     )
 
