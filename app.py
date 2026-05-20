@@ -1216,7 +1216,7 @@ with st.sidebar:
             font-size: 12px;
             font-weight: 600;
         ">
-            v1.3.6 bug fixed
+            v2.0.0 Major Update
         </div>
         """,
         unsafe_allow_html=True
