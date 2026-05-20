@@ -121,5 +121,133 @@
     "oracle",
     "database",
     "backup"
+  ],
+
+  "Mechanical Engineer": [
+    "autocad",
+    "solidworks",
+    "catia",
+    "manufacturing",
+    "thermodynamics"
+  ],
+
+  "Civil Engineer": [
+    "autocad",
+    "staad pro",
+    "surveying",
+    "construction",
+    "estimation"
+  ],
+
+  "Electrical Engineer": [
+    "circuit design",
+    "power systems",
+    "electrical machines",
+    "matlab",
+    "autocad electrical"
+  ],
+
+  "Electronics Engineer": [
+    "embedded systems",
+    "arduino",
+    "vlsi",
+    "pcb design",
+    "microcontrollers"
+  ],
+
+  "HR Executive": [
+    "recruitment",
+    "communication",
+    "payroll",
+    "employee relations",
+    "hrms"
+  ],
+
+  "Digital Marketing Executive": [
+    "seo",
+    "google ads",
+    "social media marketing",
+    "content marketing",
+    "analytics"
+  ],
+
+  "Graphic Designer": [
+    "photoshop",
+    "illustrator",
+    "figma",
+    "branding",
+    "canva"
+  ],
+
+  "Content Writer": [
+    "content writing",
+    "seo",
+    "blogging",
+    "copywriting",
+    "editing"
+  ],
+
+  "Business Analyst": [
+    "excel",
+    "power bi",
+    "sql",
+    "data analysis",
+    "communication"
+  ],
+
+  "Finance Analyst": [
+    "financial analysis",
+    "excel",
+    "accounting",
+    "budgeting",
+    "forecasting"
+  ],
+
+  "Accountant": [
+    "tally",
+    "gst",
+    "taxation",
+    "accounting",
+    "excel"
+  ],
+
+  "Sales Executive": [
+    "sales",
+    "communication",
+    "negotiation",
+    "crm",
+    "marketing"
+  ],
+
+  "Customer Support Executive": [
+    "communication",
+    "problem solving",
+    "customer service",
+    "crm",
+    "email support"
+  ],
+
+  "Teacher": [
+    "teaching",
+    "communication",
+    "lesson planning",
+    "subject knowledge",
+    "classroom management"
+  ],
+
+  "Nursing Assistant": [
+    "patient care",
+    "medical assistance",
+    "communication",
+    "healthcare",
+    "vital signs"
+  ],
+
+  "Pharmacist": [
+    "pharmacy",
+    "medicines",
+    "patient counseling",
+    "inventory",
+    "medical knowledge"
   ]
 }
