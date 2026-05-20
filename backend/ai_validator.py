@@ -6,40 +6,23 @@ import streamlit as st
 from dotenv import load_dotenv
 from google import genai
 
-# --------------------------
-# Load Environment
-# --------------------------
 load_dotenv()
 
 
-# --------------------------
-# Get API Key
-# --------------------------
 def get_api_key():
-
-    # Streamlit Cloud Secrets
     try:
         return st.secrets["GEMINI_API_KEY"]
-
-    # Local .env fallback
     except Exception:
         return os.getenv("GEMINI_API_KEY")
 
 
 API_KEY = get_api_key()
 
-
-# --------------------------
-# Gemini Client
-# --------------------------
 client = genai.Client(
     api_key=API_KEY
 )
 
 
-# --------------------------
-# Resume Validation
-# --------------------------
 def validate_resume(resume_text):
 
     if not API_KEY:
@@ -80,15 +63,12 @@ Document Text:
 """
 
     try:
-
         response = client.models.generate_content(
             model="gemini-2.5-flash-lite",
             contents=prompt
         )
 
         text = response.text.strip()
-
-        # Remove markdown formatting if exists
         text = text.replace("```json", "")
         text = text.replace("```", "")
         text = text.strip()
@@ -98,7 +78,6 @@ Document Text:
         return result
 
     except Exception as e:
-
         print("Gemini Validation Error:", e)
 
         return {
