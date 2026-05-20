@@ -4,7 +4,10 @@ import streamlit as st
 import json
 import time
 import os
+from io import BytesIO
+from docx import Document
 from dotenv import load_dotenv
+from backend.ai_analyzer import analyze_resume_ai
 from backend.database import (
     cache_collection,
     coupons_collection,
@@ -1303,15 +1306,217 @@ if not job_roles:
 def create_pdf(resume_text):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.set_font("Arial", size=11)
+    pdf.set_auto_page_break(auto=True, margin=14)
+
+    pdf.set_fill_color(20, 20, 20)
+    pdf.rect(0, 0, 210, 297, "F")
+
+    pdf.set_text_color(0, 255, 76)
+    pdf.set_font("Arial", "B", 20)
+    pdf.cell(0, 12, "AI GENERATED RESUME", ln=True, align="C")
+
+    pdf.ln(6)
+
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Arial", size=10)
 
     for line in resume_text.split("\n"):
         clean_line = line.encode("latin-1", "replace").decode("latin-1")
-        pdf.multi_cell(0, 8, clean_line)
+
+        if clean_line.strip().isupper() and len(clean_line.strip()) < 35:
+            pdf.ln(3)
+            pdf.set_text_color(0, 255, 76)
+            pdf.set_font("Arial", "B", 12)
+            pdf.multi_cell(0, 8, clean_line)
+            pdf.set_text_color(255, 255, 255)
+            pdf.set_font("Arial", size=10)
+        else:
+            pdf.multi_cell(0, 6, clean_line)
 
     return pdf.output(dest="S").encode("latin-1")
 
+def create_docx(resume_text):
+    doc = Document()
+
+    for line in resume_text.split("\n"):
+        clean_line = line.strip()
+
+        if not clean_line:
+            doc.add_paragraph("")
+            continue
+
+        if clean_line.isupper() and len(clean_line) < 40:
+            doc.add_heading(clean_line, level=2)
+        else:
+            doc.add_paragraph(clean_line)
+
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+
+    return buffer
+
+def show_resume_preview(
+    resume_text,
+    add_photo_space="No",
+    add_certificate_space="No"
+):
+
+    safe_text = (
+        resume_text
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
+
+    lines = safe_text.split("\n")
+    html_lines = []
+
+    in_list = False
+
+    for line in lines:
+
+        clean = line.strip()
+
+        if not clean:
+            continue
+
+        # Ignore AI placeholders
+        if clean in [
+            "[Attach Photo Here]",
+            "[Attach Certificates Here]",
+            "PHOTO SPACE",
+            "CERTIFICATES SPACE"
+        ]:
+            continue
+
+        elif clean.isupper() and len(clean) < 40:
+
+            if in_list:
+                html_lines.append("</ul>")
+                in_list = False
+
+            html_lines.append(
+                f"""
+                <h2 style="
+                    color:#00aa33;
+                    margin-top:24px;
+                    border-bottom:1px solid #cccccc;
+                    padding-bottom:6px;
+                ">
+                    {clean}
+                </h2>
+                """
+            )
+
+        elif clean.startswith("-"):
+
+            if not in_list:
+                html_lines.append("<ul>")
+                in_list = True
+
+            html_lines.append(
+                f"<li style='margin-bottom:8px;'>{clean[1:].strip()}</li>"
+            )
+
+        else:
+
+            if in_list:
+                html_lines.append("</ul>")
+                in_list = False
+
+            html_lines.append(
+                f"<p style='margin:8px 0;'>{clean}</p>"
+            )
+
+    if in_list:
+        html_lines.append("</ul>")
+
+    html_content = "\n".join(html_lines)
+
+    # PHOTO BOX (RIGHT SIDE)
+    photo_box = ""
+
+    if add_photo_space == "Yes":
+        photo_box = """
+        <div style="
+            width:150px;
+            height:180px;
+            border:2px dashed #00aa33;
+            border-radius:10px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            text-align:center;
+            color:#555;
+            font-weight:700;
+            flex-shrink:0;
+        ">
+            Attach<br>Photo<br>Here
+        </div>
+        """
+
+    # CERTIFICATE BOX
+    certificate_box = ""
+
+    if add_certificate_space == "Yes":
+        certificate_box = """
+        <div style="
+            margin-top:30px;
+            border:2px dashed #00aa33;
+            border-radius:12px;
+            height:180px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:#555;
+            font-size:18px;
+            font-weight:700;
+        ">
+            Attach Certificates Here
+        </div>
+        """
+
+    st.html(f"""
+    <div style="
+        background:white;
+        color:#111111;
+        max-width:850px;
+        margin:auto;
+        padding:45px;
+        border-radius:22px;
+        box-shadow:0 0 35px rgba(0,255,76,0.22);
+        font-family:Arial,sans-serif;
+        line-height:1.6;
+    ">
+
+    <h1 style="
+        text-align:center;
+        margin-bottom:25px;
+        color:#111111;
+    ">
+    Professional Resume
+    </h1>
+
+    <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:flex-start;
+        gap:30px;
+    ">
+
+        <div style="flex:1;">
+            {html_content}
+        </div>
+
+        {photo_box}
+
+    </div>
+
+    {certificate_box}
+
+    </div>
+    """)
 
 # =====================================================
 # RESULT DISPLAY FUNCTION
@@ -1334,6 +1539,28 @@ def show_analysis_result(ai, score, matched, missing):
         st.metric("AI Confidence", f'{ai.get("confidence", 0)}%')
 
     st.info(ai.get("summary", ""))
+
+    if ai.get("ai_summary"):
+        st.subheader("🤖 AI Resume Analysis")
+        st.info(ai.get("ai_summary"))
+
+    if ai.get("role_fit"):
+        st.metric("Role Fit", ai.get("role_fit"))
+
+    if ai.get("strengths"):
+        st.subheader("💪 Strengths")
+        for item in ai.get("strengths", []):
+            st.success(item)
+
+    if ai.get("weaknesses"):
+        st.subheader("⚠️ Weaknesses")
+        for item in ai.get("weaknesses", []):
+            st.warning(item)
+
+    if ai.get("improvement_suggestions"):
+        st.subheader("🚀 Improvement Suggestions")
+        for item in ai.get("improvement_suggestions", []):
+            st.info(item)
 
     st.write("---")
 
@@ -1409,9 +1636,13 @@ if st.session_state.page == "Resume Analyzer":
 
     with col2:
         selected_role = st.selectbox(
-            "🎯 Select Job Role",
-            job_roles
+            "🎯 Select or Type Job Role",
+            job_roles,
+            accept_new_options=True,
+            placeholder="Select or type custom job role"
         )
+
+        selected_role = selected_role.strip()
 
     analyze_clicked = st.button("🚀 Analyze Resume", use_container_width=True)
 
@@ -1449,18 +1680,23 @@ if st.session_state.page == "Resume Analyzer":
 
             current_credits = get_credits(st.session_state.user_email)
 
-            if current_credits < 10:
-                 st.error("❌ You need at least 10 credits to analyze a resume.")
+            if current_credits < 20:
+                 st.error("❌ You need at least 20 credits to analyze a resume.")
                  st.stop()
             
-            ok, msg = deduct_credit(st.session_state.user_email, 10)
+            ok, msg = deduct_credit(st.session_state.user_email, 20)
 
             if not ok:
                 st.error(msg)
                 st.stop()
 
             with st.spinner("Analyzing resume..."):
-                wait_for_gemini_slot()
+                slot = wait_for_gemini_slot()
+
+                if not slot:
+                    st.error("AI server busy. Try again later.")
+                    st.stop()
+
                 ai = validate_resume(resume_text)
 
             if ai.get("is_resume") is False:
@@ -1478,12 +1714,46 @@ if st.session_state.page == "Resume Analyzer":
                 }
 
             skills = extract_skills(resume_text)
-            required_skills = roles_data[selected_role]
+            required_skills = roles_data.get(selected_role, [])
 
-            score, matched, missing = match_skills(
+            keyword_score, keyword_matched, keyword_missing = match_skills(
                 skills,
                 required_skills
             )
+
+            with st.spinner("Running AI-powered resume analysis..."):
+                slot = wait_for_gemini_slot()
+
+                if not slot:
+                    st.error("AI server busy. Try again later.")
+                    st.stop()
+
+                ai_analysis = analyze_resume_ai(
+                    resume_text,
+                    selected_role,
+                    required_skills
+                )
+
+            if ai_analysis:
+                score = ai_analysis.get("ai_score", keyword_score)
+                matched = ai_analysis.get("matched_skills", keyword_matched)
+                missing = ai_analysis.get("missing_skills", keyword_missing)
+
+                ai["candidate_level"] = ai_analysis.get("candidate_level", "Unknown")
+                ai["role_fit"] = ai_analysis.get("role_fit", "Unknown")
+                ai["ai_summary"] = ai_analysis.get("short_summary", "")
+                ai["strengths"] = ai_analysis.get("strengths", [])
+                ai["weaknesses"] = ai_analysis.get("weaknesses", [])
+                ai["improvement_suggestions"] = ai_analysis.get("improvement_suggestions", [])
+            else:
+                score = keyword_score
+                matched = keyword_matched
+                missing = keyword_missing
+
+                ai["ai_summary"] = "AI analysis unavailable. Showing keyword-based ATS result."
+                ai["strengths"] = []
+                ai["weaknesses"] = []
+                ai["improvement_suggestions"] = []
 
             save_cached_result(
                 resume_hash=resume_hash,
@@ -1504,6 +1774,8 @@ if st.session_state.page == "Resume Analyzer":
             st.rerun()
 
     elif not uploaded_file:
+        st.session_state.analysis_result = None
+
         st.info("📤 Upload a resume to begin.")
 
         st.write("---")
@@ -1547,7 +1819,32 @@ elif st.session_state.page == "AI CV Maker":
 
         phone = st.text_input("Phone")
 
-        target_role = st.selectbox("Target Role", job_roles)
+        target_role = st.selectbox(
+            "Target Role (Optional)",
+            [""] + job_roles,
+            accept_new_options=True,
+            placeholder="Optional — Select or type target role"
+        )
+
+        target_role = target_role.strip() if target_role else ""
+
+        target_role = target_role.strip()
+
+        st.markdown("### Extra Resume Sections")
+
+        add_photo_space = st.radio(
+            "Add space for Photo?",
+            ["No", "Yes"],
+            horizontal=True,
+            key="add_photo_space"
+        )
+
+        add_certificate_space = st.radio(
+            "Add space for Certificates?",
+            ["No", "Yes"],
+            horizontal=True,
+            key="add_certificate_space"
+        )
 
         education = st.text_area("Education")
 
@@ -1586,7 +1883,9 @@ elif st.session_state.page == "AI CV Maker":
                     skills=skills,
                     experience=experience,
                     projects=projects,
-                    target_role=target_role
+                    target_role=target_role,
+                    add_photo_space=add_photo_space,
+                    add_certificate_space=add_certificate_space
                 )
 
             if not generated_resume or "Gemini AI is currently unavailable" in generated_resume:
@@ -1613,15 +1912,24 @@ elif st.session_state.page == "AI CV Maker":
 
         st.success("Resume Generated Successfully")
 
-        st.text_area(
-            "Generated Resume",
+        st.subheader("📄 Resume Preview")
+        show_resume_preview(
             generated_resume,
-            height=500
+            add_photo_space=st.session_state.get("add_photo_space", "No"),
+            add_certificate_space=st.session_state.get("add_certificate_space", "No")
         )
 
-        pdf_data = create_pdf(generated_resume)
+        with st.expander("View Raw Text Resume"):
+            st.text_area(
+                "Raw Resume Text",
+                generated_resume,
+                height=350
+            )
 
-        d1, d2 = st.columns(2)
+        pdf_data = create_pdf(generated_resume)
+        docx_data = create_docx(generated_resume)
+
+        d1, d2, d3 = st.columns(3)
 
         with d1:
             st.download_button(
@@ -1638,6 +1946,15 @@ elif st.session_state.page == "AI CV Maker":
                 data=pdf_data,
                 file_name=f"{resume_name.replace(' ', '_')}_resume.pdf",
                 mime="application/pdf",
+                use_container_width=True
+            )
+
+        with d3:
+            st.download_button(
+                "📝 Download DOCX",
+                data=docx_data,
+                file_name=f"{resume_name.replace(' ', '_')}_resume.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 use_container_width=True
             )
 
